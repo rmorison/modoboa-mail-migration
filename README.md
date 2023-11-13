@@ -4,7 +4,7 @@
 
 Follow the [Modoboa install instructions](https://github.com/modoboa/modoboa/blob/master/doc/installation.rst)
 
-## Install Modoboa on *NEW* server
+## Install Roundcubemail on *NEW* server
 
 Follow the [roundcubemail install instructions](https://github.com/roundcube/roundcubemail/wiki/Installation).
 
@@ -22,6 +22,7 @@ localhost:5432:spamassassin:spamassassin:CHANGEME
 ### Where to find passwords on *OLD* and *NEW* server
 
 - modoboa, amavis: `/srv/modoboa/instance/instance/settings.py`
+- roundcubemail: `<roundcubemail>/config/config.inc.php`
 
 ## Stop services on *NEW* server
 
@@ -39,7 +40,7 @@ make stop-services
 
 ```bash
 make dump
-rsync -azP vmail@OLD:modoboa-mail-migration/dumps .
+rsync -azP OLD:modoboa-mail-migration/dumps .
 ```
 
 ## Restore databases (with workaround for 1.17.0 -> 2.0.0)
@@ -47,9 +48,8 @@ rsync -azP vmail@OLD:modoboa-mail-migration/dumps .
 See [Upgrade from 1.17.0 to 2.0.0 fails - psycopg2.errors.FeatureNotSupported: cannot alter type of a column used by a view or rule](https://github.com/modoboa/modoboa/issues/2508). 
 
 ```shell
-make drop-dkim-view
 make restore
-make create-dkim-view
+make drop-dkim-view
 ```
 
 ## Complete Modoboa upgrade on *NEW* servier
@@ -63,14 +63,42 @@ cd <modoboa_instance_dir>
 python manage.py migrate
 python manage.py collectstatic
 python manage.py check --deploy
+exit
+```
+
+## Recreate dkim view (if needed)
+
+```
+make create-dkim-view
 ```
 
 ## Sync vmail from *OLD* server to *NEW* server
+
+Create a `domains.make` with a list of domains to sync, e.g.,
+
+```make
+DOMAINS := \
+	domain.com
+```
 
 You can rerun this as needed if mail is still being delivered to *OLD* server
 
 ```bash
 make sync-mail
+```
+
+## Dkim keys
+
+```bash
+sudo bash
+scp -r morison.io:dkim/\* /var/lib/dkim
+chown opendkim:opendkim /var/lib/dkim/*
+```
+
+## Start it up again and test, test, test
+
+```
+make start-services
 ```
 
 ## Debug, debug, debug
